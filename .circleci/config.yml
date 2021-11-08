@@ -1,0 +1,65 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+jobs:
+  build-and-test:
+    docker:
+      - image: docker:stable-git
+    working_directory: ~/device-os
+    resource_class: small
+    parallelism: 9
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: "Fetch dependencies"
+          command: |
+            apk -q update && apk -q add bash
+            cd ~/
+            git clone git@github.com:particle-iot/firmware-buildpack-builder.git
+            cd ~/device-os
+            git submodule update --init --recursive
+      - run:
+          name: "Prepare environment"
+          shell: /bin/bash
+          command: |
+            cd $HOME/device-os
+            export FIRMWARE_PATH=$HOME/device-os
+            export CIRCLE_BRANCH_NORMALIZED=$(echo "${CIRCLE_BRANCH}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+            export CIRCLE_SHORT_REF=$(git rev-parse --short HEAD)
+            export TAG="${CIRCLE_BRANCH_NORMALIZED}-${CIRCLE_SHORT_REF}"
+            export DOCKER_IMAGE_NAME=particle/cf-device-os-buildpack
+            mkdir -p ~/failures
+            echo "tests argon boron bsom b5som tracker photon p1 electron" > /tmp/platforms
+            $HOME/firmware-buildpack-builder/scripts/build-deviceos
+            $HOME/firmware-buildpack-builder/scripts/build-image
+            $HOME/firmware-buildpack-builder/scripts/build-test-image
+      - run:
+          name: "Run tests / build for platforms"            
+          shell: /bin/bash
+          command: |
+            cd $HOME/device-os
+            cat /tmp/platforms
+            BUILD_PLATFORM=$(circleci tests split /tmp/platforms)
+            echo "BUILD_PLATFORM=$BUILD_PLATFORM"
+            if [ "$BUILD_PLATFORM" == "tests" ]; then
+              export BUILD_PLATFORM="unit-test newhal gcc"
+            fi
+            export FIRMWARE_PATH=$HOME/device-os
+            export CIRCLE_BRANCH_NORMALIZED=$(echo "${CIRCLE_BRANCH}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+            export CIRCLE_SHORT_REF=$(git rev-parse --short HEAD)
+            export TAG="${CIRCLE_BRANCH_NORMALIZED}-${CIRCLE_SHORT_REF}"
+            export DOCKER_IMAGE_NAME=particle/cf-device-os-buildpack
+            mkdir -p ~/failures
+            # $HOME/firmware-buildpack-builder/scripts/ci | tee >(grep -E '^has_failures [0-9]+ ' > $HOME/failures/has_failures); export TMPRESULT=${PIPESTATUS[0]}
+            export RESULT=${TMPRESULT}
+            echo ${RESULT}
+            exit ${RESULT}
+
+workflows:
+  build-and-test:
+    jobs:
+      - build-and-test
