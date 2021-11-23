@@ -7,7 +7,7 @@ Building and running tests
 Create a build directory:
 
 ```bash
-rm -rf .build && mkdir .build && cd .build
+rm -rf build && mkdir build && cd build
 ```
 
 Generate build files:

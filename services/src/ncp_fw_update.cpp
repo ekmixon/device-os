@@ -17,7 +17,7 @@
 
 #include "ncp_fw_update.h"
 #include "system_error.h"
-// #if HAL_PLATFORM_NCP_FW_UPDATE
+#if HAL_PLATFORM_NCP_FW_UPDATE
 
 #include "logging.h"
 #define SARA_NCP_FW_UPDATE_LOG_CATEGORY "system.ncp.update"
@@ -84,10 +84,10 @@ const int NCP_FW_UUFWINSTALL_COMPLETE = 128;
  * };
  */
 const SaraNcpFwUpdateConfig SARA_NCP_FW_UPDATE_CONFIG[] = {
-    // { sizeof(SaraNcpFwUpdateConfig), 3140001, 103140001, "SARA-R510S-01B-00-ES-0314A0001_SARA-R510S-01B-00-XX-0314ENG0099A0001.upd", "09c1a98d03c761bcbea50355f9b2a50f" },
-    // { sizeof(SaraNcpFwUpdateConfig), 103140001, 3140001, "SARA-R510S-01B-00-XX-0314ENG0099A0001_SARA-R510S-01B-00-ES-0314A0001.upd", "136caf2883457093c9e41fda3c6a44e3" },
-    // { sizeof(SaraNcpFwUpdateConfig), 2060001, 99010001, "SARA-R510S-00B-01_FW02.06_A00.01_IP_SARA-R510S-00B-01_FW99.01_A00.01.upd", "ccfdc48c0a45198d6e168b30d0740959" },
-    // { sizeof(SaraNcpFwUpdateConfig), 99010001, 2060001, "SARA-R510S-00B-01_FW99.01_A00.01_SARA-R510S-00B-01_FW02.06_A00.01_IP.upd", "5fd6c0d3d731c097605895b86f28c2cf" },
+    // { sizeof(SaraNcpFwUpdateConfig), 31400010, 31400011, "SARA-R510S-01B-00-ES-0314A0001_SARA-R510S-01B-00-XX-0314ENG0099A0001.upd", "09c1a98d03c761bcbea50355f9b2a50f" },
+    // { sizeof(SaraNcpFwUpdateConfig), 31400011, 31400010, "SARA-R510S-01B-00-XX-0314ENG0099A0001_SARA-R510S-01B-00-ES-0314A0001.upd", "136caf2883457093c9e41fda3c6a44e3" },
+    // { sizeof(SaraNcpFwUpdateConfig), 20600010, 990100010, "SARA-R510S-00B-01_FW02.06_A00.01_IP_SARA-R510S-00B-01_FW99.01_A00.01.upd", "ccfdc48c0a45198d6e168b30d0740959" },
+    // { sizeof(SaraNcpFwUpdateConfig), 990100010, 20600010, "SARA-R510S-00B-01_FW99.01_A00.01_SARA-R510S-00B-01_FW02.06_A00.01_IP.upd", "5fd6c0d3d731c097605895b86f28c2cf" },
 };
 const size_t SARA_NCP_FW_UPDATE_CONFIG_SIZE = sizeof(SARA_NCP_FW_UPDATE_CONFIG) / sizeof(SARA_NCP_FW_UPDATE_CONFIG[0]);
 
@@ -460,17 +460,18 @@ int SaraNcpFwUpdate::process() {
                 NCPFW_LOG(INFO, "Disconnecting Cellular...");
                 // network_disconnect() doesn't wait for final OK response from CFUN=0
                 // wait for DETACH: +CGEV: ME PDN DEACT 1
-                //   FIXME: Note that this uses internals of the NCP client/parser and that a new cellular_hal API
-                //   should be added for this functionality later, as in all the other places we are using
-                //   cellular_commandas opposed to directly calling into ncp client/parser.
-// FIXME
-#ifndef UNIT_TEST
-                auto mgr = cellularNetworkManager();
-                auto client = mgr->ncpClient();
-                auto parser = client->atParser();
-                const NcpClientLock lock(client);
-                parser->addUrcHandler("+CGEV", cgevCallback, this);
-#endif // UNIT_TEST
+                cellular_add_urc_handler("+CGEV", [](const char* data, void* context) -> int {
+                    const auto self = (SaraNcpFwUpdate*)context;
+                    int profile;
+
+                    int r = ::sscanf(data, "+CGEV: ME PDN DEACT %d", &profile);
+                    // do not CHECK_TRUE as we intend to ignore +CGEV: ME DETACH
+                    if (r >= 1) {
+                        self->cgevDeactProfile_ = profile;
+                    }
+
+                    return SYSTEM_ERROR_NONE;
+                }, this);
                 cgevDeactProfile_ = 0;
                 startTimer_ = millis();
                 network_disconnect(0, NETWORK_DISCONNECT_REASON_USER, 0);
@@ -537,17 +538,25 @@ int SaraNcpFwUpdate::process() {
             }
         }
 
-        // FIXME: Note that this uses internals of the NCP client/parser and that a new cellular_hal API
-        // should be added for this functionality later, as in all the other places we are using
-        // cellular_commandas opposed to directly calling into ncp client/parser.
-// FIXME
-#ifndef UNIT_TEST
-        auto mgr = cellularNetworkManager();
-        auto client = mgr->ncpClient();
-        auto parser = client->atParser();
-        const NcpClientLock lock(client);
-        parser->addUrcHandler("+UUHTTPCR", httpRespCallback, this);
-#endif // UNIT_TEST
+        cellular_add_urc_handler("+UUHTTPCR", [](const char* data, void* context) -> int {
+            const auto self = (SaraNcpFwUpdate*)context;
+            int a, b, c;
+            char s[40];
+
+            int r = ::sscanf(data, "+UUHTTPCR: %*d,%d,%d,%d,\"%32s\"", &a, &b, &c, s);
+            CHECK_TRUE(r >= 3, SYSTEM_ERROR_AT_RESPONSE_UNEXPECTED);
+
+            self->httpsResp_.valid = false; // make following lines atomic
+            self->httpsResp_.command = a;
+            self->httpsResp_.result = b;
+            self->httpsResp_.status_code = c;
+            if (r > 3) {
+                memcpy(self->httpsResp_.md5_sum, &s, sizeof(s));
+            }
+            self->httpsResp_.valid = true;
+
+            return SYSTEM_ERROR_NONE;
+        }, this);
 
         NCPFW_LOG(INFO, "Starting download...");
 #if SARA_NCP_FW_UPDATE_ENABLE_DOWNLOAD
@@ -575,6 +584,8 @@ int SaraNcpFwUpdate::process() {
                 }
             }
         }
+
+        cellular_remove_urc_handler("+UUHTTPCR");
 #else // SARA_NCP_FW_UPDATE_ENABLE_DOWNLOAD
         // DEBUG
         modemFirmwareDownloadComplete = true;
@@ -606,6 +617,7 @@ int SaraNcpFwUpdate::process() {
     {
         if (cgevDeactProfile_ == NCP_FW_UBLOX_DEFAULT_CID) { // Default CID detached
             NCPFW_LOG(INFO, "Disconnected Cellular.");
+            cellular_remove_urc_handler("+CGEV");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_INSTALL_STARTING;
             cooldown(1000); // allow other disconnect URCs to pass
         }
@@ -1005,10 +1017,10 @@ int sara_ncp_fw_update_config(const SaraNcpFwUpdateConfig* userConfigData, void*
     return particle::services::SaraNcpFwUpdate::instance()->setConfig(userConfigData);
 }
 
-// #else // #if HAL_PLATFORM_NCP_FW_UPDATE
+#else // #if HAL_PLATFORM_NCP_FW_UPDATE
 
-// int sara_ncp_fw_update_config(const SaraNcpFwUpdateConfig* userConfigData, void* reserved) {
-//     return SYSTEM_ERROR_NONE;
-// }
+int sara_ncp_fw_update_config(const SaraNcpFwUpdateConfig* userConfigData, void* reserved) {
+    return SYSTEM_ERROR_NONE;
+}
 
-// #endif // #if HAL_PLATFORM_NCP_FW_UPDATE
+#endif // #if HAL_PLATFORM_NCP_FW_UPDATE

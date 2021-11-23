@@ -79,3 +79,11 @@ int cellular_command(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms,
 int cellular_get_ncp_firmware_version(uint32_t* version, void* reserved) {
     return 0;
 }
+
+int cellular_add_urc_handler(const char* prefix, hal_cellular_urc_callback_t cb, void* context) {
+    return 0;
+}
+
+int cellular_remove_urc_handler(const char* prefix) {
+    return 0;
+}

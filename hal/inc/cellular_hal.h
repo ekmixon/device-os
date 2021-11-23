@@ -282,6 +282,16 @@ int cellular_update_status(void* reserved);
  */
 int cellular_enable_updates(void* reserved);
 
+/**
+ * Add URC handler
+ */
+int cellular_add_urc_handler(const char* prefix, hal_cellular_urc_callback_t cb, void* context);
+
+/**
+ * Remove URC handler
+ */
+int cellular_remove_urc_handler(const char* prefix);
+
 #ifdef __cplusplus
 }
 #endif
