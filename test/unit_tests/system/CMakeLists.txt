@@ -27,11 +27,13 @@ target_compile_options( ${target_name}
 target_include_directories( ${target_name}
   PRIVATE ${TEST_DIR}
   PRIVATE ${TEST_DIR}/stub/
+  PRIVATE ${TEST_DIR}/util/
   PRIVATE ${DEVICE_OS_DIR}/communication/inc/
   PRIVATE ${DEVICE_OS_DIR}/hal/inc/
   PRIVATE ${DEVICE_OS_DIR}/hal/shared/
   PRIVATE ${DEVICE_OS_DIR}/services/inc/
   PRIVATE ${DEVICE_OS_DIR}/system/inc/
+  PRIVATE ${DEVICE_OS_DIR}/system/src/
   PRIVATE ${DEVICE_OS_DIR}/wiring/inc/
   PRIVATE ${DEVICE_OS_DIR}/dynalib/inc/
   PRIVATE ${DEVICE_OS_DIR}/hal/src/gcc/
