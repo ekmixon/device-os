@@ -19,6 +19,8 @@
 #ifndef SPARK_MACROS_H_
 #define SPARK_MACROS_H_
 
+#include "preprocessor.h"
+
 #if !defined(arraySize)
 #   define arraySize(a)            (sizeof((a))/sizeof((a[0])))
 #endif
@@ -38,11 +40,6 @@
 
 #define CCASSERT(predicate) _x_CCASSERT_LINE(predicate, __LINE__)
 #define _x_CCASSERT_LINE(predicate, line) typedef char CAT(constraint_violated_on_line_,line)[2*((predicate)!=0)-1];
-
-#ifndef stringify
-#define stringify(x) __stringify(x)
-#define __stringify(x) #x
-#endif
 
 // Seconds to Us
 #define S2u(s) ((s)*1000000)

@@ -89,7 +89,7 @@ public:
                 if (info->size>=28)
                 {
                     info->versionNumber = mock_system_version;
-                    strncpy(info->versionString, stringify(MOCK_SYSTEM_VERSION_STRING), sizeof(info->versionString));
+                    strncpy(info->versionString, PP_STR(MOCK_SYSTEM_VERSION_STRING), sizeof(info->versionString));
                 }
             }
             return sizeof(SystemVersionInfo);
