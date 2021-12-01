@@ -22,6 +22,13 @@ Build and run the tests and coverage:
 make all test coverage
 ```
 
+Enable verbose output for monitoring all of those printf() statements while debugging tests
+(note: please don't forget to disable these printf's when finished debugging)
+
+```
+make all test coverage ARGS=--verbose
+```
+
 
 MacOSX
 ------

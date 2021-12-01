@@ -815,7 +815,6 @@ void app_setup_and_loop(void)
     saraNcpFwUpdateCallbacks.spark_cloud_flag_connect = spark_cloud_flag_connect;
     saraNcpFwUpdateCallbacks.spark_cloud_flag_disconnect = spark_cloud_flag_disconnect;
     saraNcpFwUpdateCallbacks.publishEvent = publishEvent;
-    saraNcpFwUpdateCallbacks.system_mode = system_mode;
     services::SaraNcpFwUpdate::instance()->init(saraNcpFwUpdateCallbacks);
 #endif
 

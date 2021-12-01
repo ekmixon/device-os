@@ -50,11 +50,13 @@ struct SaraNcpFwUpdateCallbacks {
 
     // system_cloud_internal.h
     bool (*publishEvent)(const char* event, const char* data, unsigned flags);
-
-    // system_mode.h
-    System_Mode_TypeDef (*system_mode)(void);
 };
-PARTICLE_STATIC_ASSERT(SaraNcpFwUpdateCallbacks_size, sizeof(SaraNcpFwUpdateCallbacks) == (sizeof(void*) * 7));
+PARTICLE_STATIC_ASSERT(SaraNcpFwUpdateCallbacks_size, sizeof(SaraNcpFwUpdateCallbacks) == (sizeof(void*) * 6));
+
+#ifdef UNIT_TEST
+int setupHTTPSProperties_impl(void);
+int sendCommandWithArgs(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms, const char* format, va_list args);
+#endif
 
 namespace particle {
 
@@ -93,19 +95,60 @@ enum SaraNcpFwUpdateStatus {
     FW_UPDATE_STATUS_FAILED_CLOUD_CONNECT_ON_ENTRY_TIMEOUT          = -4,
     FW_UPDATE_STATUS_FAILED_PUBLISH_START                           = -5,
     FW_UPDATE_STATUS_FAILED_SETUP_CELLULAR_DISCONNECT_TIMEOUT       = -6,
-    FW_UPDATE_STATUS_FAILED_CELLULAR_CONNECT_TIMEOUT                = -7,
-    FW_UPDATE_STATUS_FAILED_HTTPS_SETUP                             = -8,
-    FW_UPDATE_STATUS_FAILED_DOWNLOAD_RETRY_MAX                      = -9,
-    FW_UPDATE_STATUS_FAILED_INSTALL_CELLULAR_DISCONNECT_TIMEOUT     = -10,
-    FW_UPDATE_STATUS_FAILED_START_INSTALL_TIMEOUT                   = -11,
-    FW_UPDATE_STATUS_FAILED_INSTALL_AT_ERROR                        = -12,
-    FW_UPDATE_STATUS_FAILED_SAME_VERSION                            = -13,
-    FW_UPDATE_STATUS_FAILED_INSTALL_TIMEOUT                         = -14,
-    FW_UPDATE_STATUS_FAILED_POWER_OFF_TIMEOUT                       = -15,
-    FW_UPDATE_STATUS_FAILED_CLOUD_CONNECT_ON_EXIT_TIMEOUT           = -16,
-    FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT                          = -17,
+    FW_UPDATE_STATUS_FAILED_SETUP_CELLULAR_STILL_CONNECTED          = -7,
+    FW_UPDATE_STATUS_FAILED_CELLULAR_CONNECT_TIMEOUT                = -8,
+    FW_UPDATE_STATUS_FAILED_HTTPS_SETUP                             = -9,
+    FW_UPDATE_STATUS_FAILED_DOWNLOAD_RETRY_MAX                      = -10,
+    FW_UPDATE_STATUS_FAILED_INSTALL_CELLULAR_DISCONNECT_TIMEOUT     = -11,
+    FW_UPDATE_STATUS_FAILED_START_INSTALL_TIMEOUT                   = -12,
+    FW_UPDATE_STATUS_FAILED_INSTALL_AT_ERROR                        = -13,
+    FW_UPDATE_STATUS_FAILED_SAME_VERSION                            = -14,
+    FW_UPDATE_STATUS_FAILED_INSTALL_TIMEOUT                         = -15,
+    FW_UPDATE_STATUS_FAILED_POWER_OFF_TIMEOUT                       = -16,
+    FW_UPDATE_STATUS_FAILED_CLOUD_CONNECT_ON_EXIT_TIMEOUT           = -17,
+    FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT                          = -18,
 };
-static_assert(FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT == -17, "SaraNcpFwUpdateStatus size changed!");
+static_assert(FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT == -18, "SaraNcpFwUpdateStatus size changed!");
+
+const system_tick_t NCP_FW_MODEM_INSTALL_ATOK_INTERVAL = 10000;
+const system_tick_t NCP_FW_MODEM_INSTALL_START_TIMEOUT = 5 * 60000;
+const system_tick_t NCP_FW_MODEM_INSTALL_FINISH_TIMEOUT = 30 * 60000;
+const system_tick_t NCP_FW_MODEM_CLOUD_CONNECT_TIMEOUT = 5 * 60000;
+const system_tick_t NCP_FW_MODEM_CLOUD_DISCONNECT_TIMEOUT = 1 * 60000;
+const system_tick_t NCP_FW_MODEM_CELLULAR_CONNECT_TIMEOUT = 10 * 60000;
+const system_tick_t NCP_FW_MODEM_DOWNLOAD_TIMEOUT = 5 * 60000;
+const system_tick_t NCP_FW_MODEM_POWER_OFF_TIMEOUT = 1 * 60000;
+const int NCP_FW_UBLOX_DEFAULT_CID = 1;
+const int NCP_FW_UUFWINSTALL_COMPLETE = 128;
+
+/**
+ * struct SaraNcpFwUpdateConfig {
+ *     uint16_t size;
+ *     uint32_t start_version;
+ *     uint32_t end_version;
+ *     char filename[256];
+ *     char md5sum[32];
+ * };
+ */
+const SaraNcpFwUpdateConfig SARA_NCP_FW_UPDATE_CONFIG[] = {
+    // { sizeof(SaraNcpFwUpdateConfig), 31400010, 31400011, "SARA-R510S-01B-00-ES-0314A0001_SARA-R510S-01B-00-XX-0314ENG0099A0001.upd", "09c1a98d03c761bcbea50355f9b2a50f" },
+    // { sizeof(SaraNcpFwUpdateConfig), 31400011, 31400010, "SARA-R510S-01B-00-XX-0314ENG0099A0001_SARA-R510S-01B-00-ES-0314A0001.upd", "136caf2883457093c9e41fda3c6a44e3" },
+    // { sizeof(SaraNcpFwUpdateConfig), 20600010, 990100010, "SARA-R510S-00B-01_FW02.06_A00.01_IP_SARA-R510S-00B-01_FW99.01_A00.01.upd", "ccfdc48c0a45198d6e168b30d0740959" },
+    // { sizeof(SaraNcpFwUpdateConfig), 990100010, 20600010, "SARA-R510S-00B-01_FW99.01_A00.01_SARA-R510S-00B-01_FW02.06_A00.01_IP.upd", "5fd6c0d3d731c097605895b86f28c2cf" },
+};
+const size_t SARA_NCP_FW_UPDATE_CONFIG_SIZE = sizeof(SARA_NCP_FW_UPDATE_CONFIG) / sizeof(SARA_NCP_FW_UPDATE_CONFIG[0]);
+
+struct __attribute__((packed)) SaraNcpFwUpdateData {
+    uint16_t size;                          // sizeof(SaraNcpFwUpdateData)
+    SaraNcpFwUpdateState state;             // FW_UPDATE_STATE_IDLE;
+    SaraNcpFwUpdateStatus status;           // FW_UPDATE_STATUS_IDLE;
+    uint32_t firmwareVersion;               // 0;
+    uint32_t startingFirmwareVersion;       // 0;
+    uint32_t updateVersion;                 // 0;
+    uint8_t updateAvailable;                // SYSTEM_NCP_FW_UPDATE_STATUS_UNKNOWN;
+    uint8_t isUserConfig;                   // 0;
+    SaraNcpFwUpdateConfig userConfigData;   // 0;
+};
 
 struct HTTPSresponse {
     volatile bool valid;
@@ -136,18 +179,6 @@ public:
     int updateStatus();
 
 protected:
-    struct SaraNcpFwUpdateData {
-        uint16_t size;                          // sizeof(SaraNcpFwUpdateData)
-        SaraNcpFwUpdateState state;             // FW_UPDATE_STATE_IDLE;
-        SaraNcpFwUpdateStatus status;           // FW_UPDATE_STATUS_IDLE;
-        uint32_t firmwareVersion;               // 0;
-        uint32_t startingFirmwareVersion;       // 0;
-        uint32_t updateVersion;                 // 0;
-        uint8_t updateAvailable;                // SYSTEM_NCP_FW_UPDATE_STATUS_UNKNOWN;
-        uint8_t isUserConfig;                   // 0;
-        SaraNcpFwUpdateConfig userConfigData;   // 0;
-    }; // Not using __attribute__((packed)) so that we can obtain a pointer to the address;
-
     SaraNcpFwUpdate();
     ~SaraNcpFwUpdate() = default;
 
@@ -177,8 +208,6 @@ protected:
 
     static int cbUHTTPER(int type, const char* buf, int len, HTTPSerror* data);
     static int cbULSTFILE(int type, const char* buf, int len, int* data);
-    static int cbUPSND(int type, const char* buf, int len, int* data);
-    static int cbCOPS(int type, const char* buf, int len, bool* data);
     static int httpRespCallback(AtResponseReader* reader, const char* prefix, void* data);
     static int cgevCallback(AtResponseReader* reader, const char* prefix, void* data);
     uint32_t getNcpFirmwareVersion();
@@ -186,7 +215,7 @@ protected:
     void cooldown(system_tick_t timer);
     void updateCooldown();
     bool inCooldown();
-    void validateSaraNcpFwUpdateData();
+    int validateSaraNcpFwUpdateData();
     int firmwareUpdateForVersion(uint32_t version);
     int getConfigData(SaraNcpFwUpdateConfig& configData);
     int saveSaraNcpFwUpdateData();

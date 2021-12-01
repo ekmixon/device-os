@@ -63,9 +63,11 @@ void network_off(network_handle_t network, uint32_t flags, uint32_t param1, void
 }
 
 bool network_is_on(network_handle_t network, void* reserved) {
+    return false;
 }
 
 bool network_is_off(network_handle_t network, void* reserved) {
+    return false;
 }
 
 int cellular_start_ncp_firmware_update(bool update, void* reserved) {
@@ -73,6 +75,10 @@ int cellular_start_ncp_firmware_update(bool update, void* reserved) {
 }
 
 int cellular_command(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms, const char* format, ...) {
+    return 0;
+}
+
+int sendCommandWithArgs(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms, const char* format, va_list args) {
     return 0;
 }
 
@@ -85,5 +91,9 @@ int cellular_add_urc_handler(const char* prefix, hal_cellular_urc_callback_t cb,
 }
 
 int cellular_remove_urc_handler(const char* prefix) {
+    return 0;
+}
+
+int setupHTTPSProperties_impl() {
     return 0;
 }

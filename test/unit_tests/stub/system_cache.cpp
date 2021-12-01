@@ -27,7 +27,7 @@
 using namespace particle::services;
 using namespace particle;
 namespace {
-    
+
 std::unordered_map<UnderlyingType<SystemCacheKey>::Type, std::vector<uint8_t>> sCache;
 
 }
@@ -44,19 +44,24 @@ int SystemCache::get(SystemCacheKey key, void* value, size_t length) {
     auto it = sCache.find(to_underlying(key));
     if (it != sCache.end()) {
         auto& vec = it->second;
-        memcpy(value, vec.data(), vec.size());
-        return 0;
+        auto len = std::min(length, vec.size());
+        uint8_t data[length];
+        std::copy(vec.begin(), vec.end(), data);
+        memcpy(value, data, len);
+        return vec.size();
     }
     return SYSTEM_ERROR_NOT_FOUND;
 }
+
 int SystemCache::set(SystemCacheKey key, const void* value, size_t length) {
     std::vector<uint8_t> vec;
-    vec.reserve(length);
-    memcpy(vec.data(), value, length);
-    sCache.insert({to_underlying(key), vec});
-    return 0;
+    vec.resize(length);
+    memcpy(&vec[0], value, length);
+    sCache[to_underlying(key)] = vec;
+    return vec.size();
 }
+
 int SystemCache::del(SystemCacheKey key) {
     sCache.erase(to_underlying(key));
-    return 0;
+    return SYSTEM_ERROR_NONE;
 }
