@@ -36,6 +36,13 @@
 
 #if HAL_PLATFORM_NCP_FW_UPDATE
 
+// Change to 0 for debugging faster
+#define SARA_NCP_FW_UPDATE_ENABLE_DOWNLOAD (1)
+#define SARA_NCP_FW_UPDATE_ENABLE_INSTALL (1)
+
+// Change to 1 for debugging
+#define SARA_NCP_FW_UPDATE_ENABLE_DEBUG_LOGGING (0)
+
 struct SaraNcpFwUpdateCallbacks {
     uint16_t size;
     uint16_t reserved;
@@ -54,7 +61,7 @@ struct SaraNcpFwUpdateCallbacks {
 PARTICLE_STATIC_ASSERT(SaraNcpFwUpdateCallbacks_size, sizeof(SaraNcpFwUpdateCallbacks) == (sizeof(void*) * 6));
 
 #ifdef UNIT_TEST
-int setupHTTPSProperties_impl(void);
+system_error_t setupHTTPSProperties_impl(void);
 int sendCommandWithArgs(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms, const char* format, va_list args);
 #endif
 
@@ -63,52 +70,36 @@ namespace particle {
 namespace services {
 
 enum SaraNcpFwUpdateState {
-    FW_UPDATE_STATE_IDLE                            = 0,
-    FW_UPDATE_STATE_QUALIFY_FLAGS                   = 1,
-    FW_UPDATE_STATE_SETUP_CLOUD_CONNECT             = 2,
-    FW_UPDATE_STATE_SETUP_CLOUD_CONNECTING          = 3,
-    FW_UPDATE_STATE_SETUP_CLOUD_CONNECTED           = 4,
-    FW_UPDATE_STATE_DOWNLOAD_CLOUD_DISCONNECT       = 5,
-    FW_UPDATE_STATE_DOWNLOAD_CELL_DISCONNECTING     = 6,
-    FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING        = 7,
-    FW_UPDATE_STATE_DOWNLOAD_HTTPS_SETUP            = 8,
-    FW_UPDATE_STATE_DOWNLOAD_READY                  = 9,
-    FW_UPDATE_STATE_INSTALL_CELL_DISCONNECTING      = 10,
-    FW_UPDATE_STATE_INSTALL_STARTING                = 11,
-    FW_UPDATE_STATE_INSTALL_WAITING                 = 12,
-    FW_UPDATE_STATE_FINISHED_POWER_OFF              = 13,
-    FW_UPDATE_STATE_FINISHED_POWERING_OFF           = 14,
-    FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTING       = 15,
-    FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTED        = 16,
-    FW_UPDATE_STATE_FINISHED_IDLE                   = 17,
+    FW_UPDATE_STATE_IDLE                        = 0,
+    FW_UPDATE_STATE_QUALIFY_FLAGS               = 1,
+    FW_UPDATE_STATE_SETUP_CLOUD_CONNECT         = 2,
+    FW_UPDATE_STATE_SETUP_CLOUD_CONNECTING      = 3,
+    FW_UPDATE_STATE_SETUP_CLOUD_CONNECTED       = 4,
+    FW_UPDATE_STATE_DOWNLOAD_CLOUD_DISCONNECT   = 5,
+    FW_UPDATE_STATE_DOWNLOAD_CELL_DISCONNECTING = 6,
+    FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING    = 7,
+    FW_UPDATE_STATE_DOWNLOAD_HTTPS_SETUP        = 8,
+    FW_UPDATE_STATE_DOWNLOAD_READY              = 9,
+    FW_UPDATE_STATE_INSTALL_CELL_DISCONNECTING  = 10,
+    FW_UPDATE_STATE_INSTALL_STARTING            = 11,
+    FW_UPDATE_STATE_INSTALL_WAITING             = 12,
+    FW_UPDATE_STATE_FINISHED_POWER_OFF          = 13,
+    FW_UPDATE_STATE_FINISHED_POWERING_OFF       = 14,
+    FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTING   = 15,
+    FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTED    = 16,
+    FW_UPDATE_STATE_FINISHED_IDLE               = 17,
 };
 static_assert(FW_UPDATE_STATE_IDLE == 0 && FW_UPDATE_STATE_FINISHED_IDLE == 17, "SaraNcpFwUpdateState size changed!");
 
 enum SaraNcpFwUpdateStatus {
-    FW_UPDATE_STATUS_IDLE                                           = 0,
-    FW_UPDATE_STATUS_DOWNLOADING                                    = 1,
-    FW_UPDATE_STATUS_UPDATING                                       = 2,
-    FW_UPDATE_STATUS_SUCCESS                                        = 3,
-    FW_UPDATE_STATUS_NONE                                           = -1, // for diagnostics
-    FW_UPDATE_STATUS_FAILED                                         = -2,
-    FW_UPDATE_STATUS_FAILED_QUALIFY_FLAGS                           = -3,
-    FW_UPDATE_STATUS_FAILED_CLOUD_CONNECT_ON_ENTRY_TIMEOUT          = -4,
-    FW_UPDATE_STATUS_FAILED_PUBLISH_START                           = -5,
-    FW_UPDATE_STATUS_FAILED_SETUP_CELLULAR_DISCONNECT_TIMEOUT       = -6,
-    FW_UPDATE_STATUS_FAILED_SETUP_CELLULAR_STILL_CONNECTED          = -7,
-    FW_UPDATE_STATUS_FAILED_CELLULAR_CONNECT_TIMEOUT                = -8,
-    FW_UPDATE_STATUS_FAILED_HTTPS_SETUP                             = -9,
-    FW_UPDATE_STATUS_FAILED_DOWNLOAD_RETRY_MAX                      = -10,
-    FW_UPDATE_STATUS_FAILED_INSTALL_CELLULAR_DISCONNECT_TIMEOUT     = -11,
-    FW_UPDATE_STATUS_FAILED_START_INSTALL_TIMEOUT                   = -12,
-    FW_UPDATE_STATUS_FAILED_INSTALL_AT_ERROR                        = -13,
-    FW_UPDATE_STATUS_FAILED_SAME_VERSION                            = -14,
-    FW_UPDATE_STATUS_FAILED_INSTALL_TIMEOUT                         = -15,
-    FW_UPDATE_STATUS_FAILED_POWER_OFF_TIMEOUT                       = -16,
-    FW_UPDATE_STATUS_FAILED_CLOUD_CONNECT_ON_EXIT_TIMEOUT           = -17,
-    FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT                          = -18,
+    FW_UPDATE_STATUS_IDLE                       = 0,
+    FW_UPDATE_STATUS_DOWNLOADING                = 1,
+    FW_UPDATE_STATUS_UPDATING                   = 2,
+    FW_UPDATE_STATUS_SUCCESS                    = 3,
+    FW_UPDATE_STATUS_FAILED                     = 4,
+    FW_UPDATE_STATUS_NONE                       = 5, // for diagnostics
 };
-static_assert(FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_FAILED_PUBLISH_RESULT == -18, "SaraNcpFwUpdateStatus size changed!");
+static_assert(FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_NONE == 5, "SaraNcpFwUpdateStatus size changed!");
 
 const system_tick_t NCP_FW_MODEM_INSTALL_ATOK_INTERVAL = 10000;
 const system_tick_t NCP_FW_MODEM_INSTALL_START_TIMEOUT = 5 * 60000;
@@ -142,6 +133,7 @@ struct __attribute__((packed)) SaraNcpFwUpdateData {
     uint16_t size;                          // sizeof(SaraNcpFwUpdateData)
     SaraNcpFwUpdateState state;             // FW_UPDATE_STATE_IDLE;
     SaraNcpFwUpdateStatus status;           // FW_UPDATE_STATUS_IDLE;
+    system_error_t error;                   // SYSTEM_ERROR_NONE;
     uint32_t firmwareVersion;               // 0;
     uint32_t startingFirmwareVersion;       // 0;
     uint32_t updateVersion;                 // 0;
@@ -173,6 +165,7 @@ public:
     void init(SaraNcpFwUpdateCallbacks callbacks);
     int process();
     int getStatusDiagnostics();
+    int getErrorDiagnostics();
     int setConfig(const SaraNcpFwUpdateConfig* userConfigData = nullptr);
     int checkUpdate(uint32_t version = 0);
     int enableUpdates();
@@ -185,7 +178,9 @@ protected:
     SaraNcpFwUpdateState saraNcpFwUpdateState_;
     SaraNcpFwUpdateState saraNcpFwUpdateLastState_;
     SaraNcpFwUpdateStatus saraNcpFwUpdateStatus_;
+    system_error_t saraNcpFwUpdateError_;
     SaraNcpFwUpdateStatus saraNcpFwUpdateStatusDiagnostics_;
+    system_error_t saraNcpFwUpdateErrorDiagnostics_;
     uint32_t startingFirmwareVersion_;
     uint32_t firmwareVersion_;
     uint32_t updateVersion_;
@@ -211,7 +206,7 @@ protected:
     static int httpRespCallback(AtResponseReader* reader, const char* prefix, void* data);
     static int cgevCallback(AtResponseReader* reader, const char* prefix, void* data);
     uint32_t getNcpFirmwareVersion();
-    int setupHTTPSProperties();
+    system_error_t setupHTTPSProperties();
     void cooldown(system_tick_t timer);
     void updateCooldown();
     bool inCooldown();
@@ -225,14 +220,25 @@ protected:
 };
 
 #ifndef UNIT_TEST
-class NcpFwUpdateDiagnostics: public AbstractUnsignedIntegerDiagnosticData {
+class NcpFwUpdateStatusDiagnostics: public AbstractUnsignedIntegerDiagnosticData {
 public:
-    NcpFwUpdateDiagnostics() :
+    NcpFwUpdateStatusDiagnostics() :
             AbstractUnsignedIntegerDiagnosticData(DIAG_ID_NETWORK_NCP_FW_UPDATE_STATUS, DIAG_NAME_NETWORK_NCP_FW_UPDATE_STATUS) {
     }
 
     virtual int get(IntType& val) override {
         val = particle::services::SaraNcpFwUpdate::instance()->getStatusDiagnostics();
+        return 0; // OK
+    }
+};
+class NcpFwUpdateErrorDiagnostics: public AbstractIntegerDiagnosticData {
+public:
+    NcpFwUpdateErrorDiagnostics() :
+            AbstractIntegerDiagnosticData(DIAG_ID_NETWORK_NCP_FW_UPDATE_ERROR_CODE, DIAG_NAME_NETWORK_NCP_FW_UPDATE_ERROR_CODE) {
+    }
+
+    virtual int get(IntType& val) override {
+        val = particle::services::SaraNcpFwUpdate::instance()->getErrorDiagnostics();
         return 0; // OK
     }
 };
