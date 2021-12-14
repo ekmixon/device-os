@@ -7,7 +7,6 @@ add_executable( ${target_name}
   ${TEST_DIR}/util/random.cpp
   ${DEVICE_OS_DIR}/services/src/simple_file_storage.cpp
   ${DEVICE_OS_DIR}/services/src/str_util.cpp
-  ${DEVICE_OS_DIR}/services/src/ncp_fw_update.cpp
   simple_file_storage.cpp
   str_util.cpp
   varint.cpp
@@ -18,7 +17,6 @@ add_executable( ${target_name}
 target_compile_definitions( ${target_name}
   PRIVATE PLATFORM_ID=3
   PRIVATE HAL_PLATFORM_FILESYSTEM=1
-  PRIVATE HAL_PLATFORM_NCP_FW_UPDATE=1
 )
 
 # Set compiler flags specific to target
@@ -30,9 +28,16 @@ target_compile_options( ${target_name}
 target_include_directories( ${target_name}
   PRIVATE ${TEST_DIR}
   PRIVATE ${TEST_DIR}/stub
-  PRIVATE ${DEVICE_OS_DIR}/services/inc
-  PRIVATE ${DEVICE_OS_DIR}/hal/inc
-  PRIVATE ${DEVICE_OS_DIR}/hal/shared
+  PRIVATE ${DEVICE_OS_DIR}/hal/
+  PRIVATE ${DEVICE_OS_DIR}/hal/inc/
+  PRIVATE ${DEVICE_OS_DIR}/hal/shared/
+  PRIVATE ${DEVICE_OS_DIR}/system/inc/
+  PRIVATE ${DEVICE_OS_DIR}/services/inc/
+  PRIVATE ${DEVICE_OS_DIR}/wiring/inc/
+  PRIVATE ${DEVICE_OS_DIR}/dynalib/inc/
+  PRIVATE ${DEVICE_OS_DIR}/hal/src/gcc/
+  PRIVATE ${DEVICE_OS_DIR}/hal/network/ncp/
+  PRIVATE ${DEVICE_OS_DIR}/hal/network/ncp/at_parser/
   PRIVATE ${THIRD_PARTY_DIR}/hippomocks
 )
 

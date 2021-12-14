@@ -97,3 +97,10 @@ int cellular_remove_urc_handler(const char* prefix) {
 int setupHTTPSProperties_impl() {
     return 0;
 }
+
+int cellular_lock(void* reserved) {
+    return 0;
+}
+
+void cellular_unlock(void* reserved) {
+}

@@ -15,20 +15,13 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-// #include <stdint.h>
 #include <inttypes.h>
 #include "ncp_fw_update.h"
-// #include "system_error.h"
-
-// #include "mock/filesystem.h"
-// #include "mock/ncp_fw_update.h"
-// #include "util/random.h"
 
 #include <catch2/catch.hpp>
 #include <hippomocks.h>
 
 #include <string>
-// #include <unordered_map>
 #include "system_mode.h"
 #ifdef INFO
 #undef INFO
@@ -60,10 +53,6 @@ namespace {
     bool publishEvent(const char* event, const char* data, unsigned flags) {
         return false;
     }
-
-    // int cellular_command(_CALLBACKPTR_MDM cb, void* param, system_tick_t timeout_ms, const char* format, ...) {
-    //     return 0;
-    // }
 
     const SaraNcpFwUpdateConfig saraNcpFwUpdateConfigUpgrade = {
         .size = sizeof(SaraNcpFwUpdateConfig),
@@ -788,7 +777,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_DOWNLOADING);
             REQUIRE(ncpTest.getStartTimer() == tempTimer + 1);
             REQUIRE(ncpTest.getCgevDeactProfile() == 0);
-            // TODO: Add test for cellular_add_urc_handler
+            // TODO: Add test for cellular_add_urc_handler?
 
             //============================================
             // FW_UPDATE_STATE_DOWNLOAD_CELL_DISCONNECTING
@@ -799,9 +788,7 @@ TEST_CASE("SaraNcpFwUpdate") {
                 ncpTest.process();
             }
             REQUIRE(HAL_Timer_Get_Milli_Seconds() >= tempTimer + NCP_FW_MODEM_CLOUD_DISCONNECT_TIMEOUT);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_FAILED);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateError() == SYSTEM_ERROR_SARA_NCP_FW_UPDATE_SETUP_CELLULAR_DISCONNECT_TIMEOUT);
+            REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING);
 
             // Restore proper state - back one state set startTimer again
             mocks.ExpectCallFunc(network_ready).Return(true);
@@ -963,9 +950,7 @@ TEST_CASE("SaraNcpFwUpdate") {
                 ncpTest.process();
             }
             REQUIRE(HAL_Timer_Get_Milli_Seconds() >= tempTimer + NCP_FW_MODEM_CLOUD_DISCONNECT_TIMEOUT);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_FAILED);
-            REQUIRE(ncpTest.getSaraNcpFwUpdateError() == SYSTEM_ERROR_SARA_NCP_FW_UPDATE_INSTALL_CELLULAR_DISCONNECT_TIMEOUT);
+            REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_INSTALL_STARTING);
 
             // Restore proper state - back one state set startTimer again
             tempTimer = HAL_Timer_Get_Milli_Seconds();

@@ -15,6 +15,8 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#if MODULE_FUNCTION != 2 // BOOTLOADER
+
 #include "ncp_fw_update.h"
 #include "system_error.h"
 #if HAL_PLATFORM_NCP_FW_UPDATE
@@ -160,13 +162,13 @@ system_error_t setupHTTPSProperties_impl() {
     if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+USECPRF=2,3,\"ubx_digicert_global_root_ca\"\r\n")) {
         return SYSTEM_ERROR_SARA_NCP_FW_UPDATE_HTTPS_SETUP_4; // Cert name
     }
-    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+USECPRF=2,4,\"fw-ftp.staging.particle.io\"\r\n")) {
+    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+USECPRF=2,4,\"fw.particle.io\"\r\n")) {
         return SYSTEM_ERROR_SARA_NCP_FW_UPDATE_HTTPS_SETUP_5; // Expected server hostname
     }
-    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+USECPRF=2,10,\"fw-ftp.staging.particle.io\"\r\n")) {
+    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+USECPRF=2,10,\"fw.particle.io\"\r\n")) {
         return SYSTEM_ERROR_SARA_NCP_FW_UPDATE_HTTPS_SETUP_6; // SNI (Server Name Indication)
     }
-    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+UHTTP=0,1,\"fw-ftp.staging.particle.io\"\r\n")) {
+    if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+UHTTP=0,1,\"fw.particle.io\"\r\n")) {
         return SYSTEM_ERROR_SARA_NCP_FW_UPDATE_HTTPS_SETUP_7;
     }
     if (RESP_OK != cellular_command(nullptr, nullptr, 10000, "AT+UHTTP=0,5,443\r\n")) {
@@ -279,7 +281,16 @@ SaraNcpFwUpdate* SaraNcpFwUpdate::instance() {
     return &instance;
 }
 
+int SaraNcpFwUpdate::lock() {
+    return mutex_.lock();
+}
+
+int SaraNcpFwUpdate::unlock() {
+    return mutex_.unlock();
+}
+
 int SaraNcpFwUpdate::setConfig(const SaraNcpFwUpdateConfig* userConfigData) {
+    SaraNcpFwUpdateLock lk;
     CHECK_NCPID(PLATFORM_NCP_SARA_R510);
     if (saraNcpFwUpdateStatus_ != FW_UPDATE_STATUS_IDLE) {
         return SYSTEM_ERROR_INVALID_STATE;
@@ -303,6 +314,7 @@ int SaraNcpFwUpdate::setConfig(const SaraNcpFwUpdateConfig* userConfigData) {
 
 // Check if firmware version requires an upgrade
 int SaraNcpFwUpdate::checkUpdate(uint32_t version /* default = 0 */) {
+    SaraNcpFwUpdateLock lk;
     CHECK_NCPID(PLATFORM_NCP_SARA_R510);
     // Prevent power cycling the modem during an update from altering the state of member variables
     if (updateAvailable_ == SYSTEM_NCP_FW_UPDATE_IN_PROGRESS) {
@@ -340,6 +352,7 @@ int SaraNcpFwUpdate::checkUpdate(uint32_t version /* default = 0 */) {
 }
 
 int SaraNcpFwUpdate::enableUpdates() {
+    SaraNcpFwUpdateLock lk;
     CHECK_NCPID(PLATFORM_NCP_SARA_R510);
     if (!initialized_ ||
             updateAvailable_ != SYSTEM_NCP_FW_UPDATE_PENDING ||
@@ -382,7 +395,7 @@ int SaraNcpFwUpdate::validateSaraNcpFwUpdateData() {
         NCPFW_LOG(INFO, "saraNcpFwUpdateData_ initialized");
         return SYSTEM_ERROR_BAD_DATA;
     }
-    // NCPFW_LOG(INFO, "saraNcpFwUpdateData_ valid");
+
     return SYSTEM_ERROR_NONE;
 }
 
@@ -442,7 +455,7 @@ int SaraNcpFwUpdate::recallSaraNcpFwUpdateData() {
 }
 
 int SaraNcpFwUpdate::deleteSaraNcpFwUpdateData() {
-    NCPFW_LOG(INFO, "Deleting cached saraNcpFwUpdateData");
+    NCPFW_LOG_DEBUG(INFO, "Deleting cached saraNcpFwUpdateData");
     int result = SystemCache::instance().del(SystemCacheKey::SARA_NCP_FW_UPDATE_DATA);
     return (result < 0) ? result : SYSTEM_ERROR_NONE;
 }
@@ -516,6 +529,7 @@ int SaraNcpFwUpdate::process() {
             saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_QUALIFY_FLAGS;
             break;
         }
+
         // If not in Safe Mode, reset now into Safe Mode!
         saraNcpFwUpdateState_ = FW_UPDATE_STATE_SETUP_CLOUD_CONNECT;
         saraNcpFwUpdateData_.state = saraNcpFwUpdateState_;
@@ -534,7 +548,7 @@ int SaraNcpFwUpdate::process() {
     case FW_UPDATE_STATE_SETUP_CLOUD_CONNECT:
     {
         if (!saraNcpFwUpdateCallbacks_.spark_cloud_flag_connected()) { // !Particle.connected()
-            NCPFW_LOG(INFO, "Connect to Cloud...");
+            NCPFW_LOG_DEBUG(INFO, "Connect to Cloud...");
             saraNcpFwUpdateCallbacks_.spark_cloud_flag_connect(); // Particle.connect()
         }
         startTimer_ = millis();
@@ -552,7 +566,7 @@ int SaraNcpFwUpdate::process() {
             saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
             saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_CLOUD_CONNECT_ON_ENTRY_TIMEOUT;
         } else if (saraNcpFwUpdateCallbacks_.spark_cloud_flag_connected()) { // Particle.connected()
-            NCPFW_LOG(INFO, "Connected to Cloud.");
+            NCPFW_LOG_DEBUG(INFO, "Connected to Cloud.");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_SETUP_CLOUD_CONNECTED;
         } else {
             cooldown(1000);
@@ -565,7 +579,7 @@ int SaraNcpFwUpdate::process() {
         saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
         if (saraNcpFwUpdateCallbacks_.spark_cloud_flag_connected()) { // Particle.connected()
             if (saraNcpFwUpdateCallbacks_.publishEvent("spark/device/ncp/update", "started", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1)) {
-                NCPFW_LOG(INFO, "Ready to start download...");
+                NCPFW_LOG_DEBUG(INFO, "Ready to start download...");
                 saraNcpFwUpdateState_ = FW_UPDATE_STATE_DOWNLOAD_CLOUD_DISCONNECT;
             } else {
                 saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
@@ -583,11 +597,12 @@ int SaraNcpFwUpdate::process() {
         if (saraNcpFwUpdateCallbacks_.spark_cloud_flag_connected()) { // Particle.connected()
             saraNcpFwUpdateCallbacks_.spark_cloud_flag_disconnect(); // Particle.disconnect()
         } else {
-            NCPFW_LOG(INFO, "Disconnected from Cloud.");
+            NCPFW_LOG_DEBUG(INFO, "Disconnected from Cloud.");
             if (network_ready(0, 0, 0)) { // Cellular.ready()
-                NCPFW_LOG(INFO, "Disconnecting Cellular...");
+                NCPFW_LOG_DEBUG(INFO, "Disconnecting Cellular...");
                 // network_disconnect() doesn't wait for final OK response from CFUN=0
                 // wait for DETACH: +CGEV: ME PDN DEACT 1
+                cgevDeactProfile_ = 0;
                 cellular_add_urc_handler("+CGEV", [](const char* data, void* context) -> int {
                     const auto self = (SaraNcpFwUpdate*)context;
                     int profile;
@@ -600,7 +615,6 @@ int SaraNcpFwUpdate::process() {
 
                     return SYSTEM_ERROR_NONE;
                 }, this);
-                cgevDeactProfile_ = 0;
                 startTimer_ = millis();
                 network_disconnect(0, NETWORK_DISCONNECT_REASON_USER, 0);
                 saraNcpFwUpdateState_ = FW_UPDATE_STATE_DOWNLOAD_CELL_DISCONNECTING;
@@ -611,14 +625,15 @@ int SaraNcpFwUpdate::process() {
 
     case FW_UPDATE_STATE_DOWNLOAD_CELL_DISCONNECTING:
     {
-        if (cgevDeactProfile_ == NCP_FW_UBLOX_DEFAULT_CID) { // Default CID detached
+        cellular_lock(nullptr); // protect against concurrent access to httpsResp_ & cgevDeactProfile_
+        const int tempCgevDeactProfile = cgevDeactProfile_;
+        cellular_unlock(nullptr);
+        if (tempCgevDeactProfile == NCP_FW_UBLOX_DEFAULT_CID) { // Default CID detached
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING;
             cooldown(1000); // allow other disconnect URCs to pass
         }
         if (millis() - startTimer_ >= NCP_FW_MODEM_CLOUD_DISCONNECT_TIMEOUT) {
-            saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
-            saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
-            saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_SETUP_CELLULAR_DISCONNECT_TIMEOUT;
+            saraNcpFwUpdateState_ = FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING;
         }
     }
     break;
@@ -626,7 +641,7 @@ int SaraNcpFwUpdate::process() {
     case FW_UPDATE_STATE_DOWNLOAD_CELL_CONNECTING:
     {
         if (!network_ready(0, 0, 0)) { // Cellular.ready()
-            NCPFW_LOG(INFO, "Disconnected Cellular. Reconnecting without PPP...");
+            NCPFW_LOG_DEBUG(INFO, "Disconnected Cellular. Reconnecting without PPP...");
             cellular_start_ncp_firmware_update(true, nullptr); // ensure we don't connect PPP
             network_connect(0, 0, 0, 0); // Cellular.connect()
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_DOWNLOAD_HTTPS_SETUP;
@@ -642,7 +657,7 @@ int SaraNcpFwUpdate::process() {
     {
         auto ret = setupHTTPSProperties();
         if (ret < 0) {
-            NCPFW_LOG(INFO, "HTTPS setup error: %d", ret);
+            NCPFW_LOG_DEBUG(INFO, "HTTPS setup error: %d", ret);
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
             if (ret == SYSTEM_ERROR_INVALID_STATE) {
                 saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_SETUP_CELLULAR_CONNECT_TIMEOUT;
@@ -665,11 +680,11 @@ int SaraNcpFwUpdate::process() {
         // There doesn't appear to be a way to test what updatePackage.bin actually IS (MD5 sum or APP version)
         // so if one exists, we must delete it before attempting to upgrade or else the FW INSTALL will
         // basically end early without the right version being applied.
-        NCPFW_LOG(INFO, "Existing FOAT file?");
+        NCPFW_LOG_DEBUG(INFO, "Existing FOAT file?");
         SEND_COMMAND((_CALLBACKPTR_MDM)cbULSTFILE, (void*)&foatReady, 10000, "AT+ULSTFILE=0,\"FOAT\"\r\n");
         if (foatReady) {
             if (RESP_OK == SEND_COMMAND(nullptr, nullptr, 10000, "AT+UDELFILE=\"updatePackage.bin\",\"FOAT\"\r\n")) {
-                NCPFW_LOG(INFO, "updatePackage.bin deleted.");
+                NCPFW_LOG_DEBUG(INFO, "updatePackage.bin deleted.");
             }
         }
 
@@ -693,7 +708,7 @@ int SaraNcpFwUpdate::process() {
             return SYSTEM_ERROR_NONE;
         }, this);
 
-        NCPFW_LOG(INFO, "Starting download...");
+        NCPFW_LOG_DEBUG(INFO, "Starting download...");
 #if SARA_NCP_FW_UPDATE_ENABLE_DOWNLOAD
         SaraNcpFwUpdateConfig configData;
         if (getConfigData(configData) != SYSTEM_ERROR_NOT_FOUND) {
@@ -704,18 +719,23 @@ int SaraNcpFwUpdate::process() {
             int resp = SEND_COMMAND(nullptr, nullptr, NCP_FW_MODEM_DOWNLOAD_TIMEOUT, "AT+UHTTPC=0,100,\"/%s\"\r\n", configData.filename);
             // int resp = RESP_OK;
             if (resp != RESP_ERROR) {
+                cellular_lock(nullptr); // protect against concurrent access to httpsResp_ & cgevDeactProfile_
                 if (httpsResp_.valid && httpsResp_.command == 100 && httpsResp_.result == 1 && httpsResp_.status_code == 200 && strcmp(httpsResp_.md5_sum, configData.md5sum)) {
                     modemFirmwareDownloadComplete = true;
                 }
+                cellular_unlock(nullptr);
                 if (!modemFirmwareDownloadComplete) {
                     system_tick_t start = millis();
                     while (millis() - start < NCP_FW_MODEM_DOWNLOAD_TIMEOUT && !modemFirmwareDownloadComplete) {
+                        cellular_lock(nullptr); // protect against concurrent access to httpsResp_ & cgevDeactProfile_
                         if (httpsResp_.valid && httpsResp_.command == 100 && httpsResp_.result == 1 && httpsResp_.status_code == 200 && !strcmp(httpsResp_.md5_sum, configData.md5sum)) {
                             modemFirmwareDownloadComplete = true;
                         }
                         if (httpsResp_.valid && httpsResp_.command == 100 && httpsResp_.result == 0) {
+                            cellular_unlock(nullptr);
                             break;
                         }
+                        cellular_unlock(nullptr);
                     }
                 }
             }
@@ -727,19 +747,21 @@ int SaraNcpFwUpdate::process() {
         modemFirmwareDownloadComplete = true;
 #endif
         if (modemFirmwareDownloadComplete) {
-            NCPFW_LOG(INFO, "command: %d, result: %d, status_code: %d, md5:[%s]",
+            cellular_lock(nullptr); // protect against concurrent access to httpsResp_ & cgevDeactProfile_
+            NCPFW_LOG_DEBUG(INFO, "command: %d, result: %d, status_code: %d, md5:[%s]",
                     httpsResp_.command, httpsResp_.result, httpsResp_.status_code, httpsResp_.md5_sum);
-            NCPFW_LOG(INFO, "Download complete and verified.");
+            NCPFW_LOG_DEBUG(INFO, "Download complete and verified.");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_INSTALL_CELL_DISCONNECTING;
-            NCPFW_LOG(INFO, "Disconnecting Cellular...");
+            NCPFW_LOG_DEBUG(INFO, "Disconnecting Cellular...");
             cgevDeactProfile_ = 0; // waiting for 1
+            cellular_unlock(nullptr);
             startTimer_ = millis();
             network_disconnect(0, NETWORK_DISCONNECT_REASON_USER, 0);
         } else {
-            NCPFW_LOG(INFO, "Download failed!!");
+            NCPFW_LOG_DEBUG(INFO, "Download failed!!");
             HTTPSerror httpsError = {};
             SEND_COMMAND((_CALLBACKPTR_MDM)cbUHTTPER, (void*)&httpsError, 10000, "AT+UHTTPER=0\r\n");
-            NCPFW_LOG(INFO, "UHTTPER class: %d, code: %d",
+            NCPFW_LOG_DEBUG(INFO, "UHTTPER class: %d, code: %d",
             httpsError.err_class, httpsError.err_code);
             if (++downloadRetries_ >= 3) {
                 saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
@@ -752,16 +774,18 @@ int SaraNcpFwUpdate::process() {
 
     case FW_UPDATE_STATE_INSTALL_CELL_DISCONNECTING:
     {
-        if (cgevDeactProfile_ == NCP_FW_UBLOX_DEFAULT_CID) { // Default CID detached
-            NCPFW_LOG(INFO, "Disconnected Cellular.");
+        cellular_lock(nullptr); // protect against concurrent access to httpsResp_ & cgevDeactProfile_
+        const int tempCgevDeactProfile = cgevDeactProfile_;
+        cellular_unlock(nullptr);
+        if (tempCgevDeactProfile == NCP_FW_UBLOX_DEFAULT_CID) { // Default CID detached
+            cellular_unlock(nullptr);
+            NCPFW_LOG_DEBUG(INFO, "Disconnected Cellular.");
             cellular_remove_urc_handler("+CGEV");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_INSTALL_STARTING;
             cooldown(1000); // allow other disconnect URCs to pass
         }
         if (millis() - startTimer_ >= NCP_FW_MODEM_CLOUD_DISCONNECT_TIMEOUT) {
-            saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
-            saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
-            saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_INSTALL_CELLULAR_DISCONNECT_TIMEOUT;
+            saraNcpFwUpdateState_ = FW_UPDATE_STATE_INSTALL_STARTING;
         }
     }
     break;
@@ -769,7 +793,7 @@ int SaraNcpFwUpdate::process() {
     case FW_UPDATE_STATE_INSTALL_STARTING:
     {
         atOkCheckTimer_ = millis();
-        NCPFW_LOG(INFO, "Installing firmware, prepare to wait 25 - 32 minutes...");
+        NCPFW_LOG_DEBUG(INFO, "Installing firmware, prepare to wait 25 - 32 minutes...");
         saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_UPDATING;
 
 #if SARA_NCP_FW_UPDATE_ENABLE_INSTALL
@@ -787,7 +811,7 @@ int SaraNcpFwUpdate::process() {
                 }
             }
             if (atResponsive) {
-                NCPFW_LOG(ERROR, "5 minute timeout waiting for INSTALL to start");
+                NCPFW_LOG_DEBUG(ERROR, "5 minute timeout waiting for INSTALL to start");
                 saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_POWER_OFF;
                 saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
                 saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_START_INSTALL_TIMEOUT;
@@ -796,7 +820,7 @@ int SaraNcpFwUpdate::process() {
                 saraNcpFwUpdateState_ = FW_UPDATE_STATE_INSTALL_WAITING;
             }
         } else {
-            NCPFW_LOG(ERROR, "AT+UFWINSTALL failed to respond");
+            NCPFW_LOG_DEBUG(ERROR, "AT+UFWINSTALL failed to respond");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_POWER_OFF;
             saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
             saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_INSTALL_AT_ERROR;
@@ -833,7 +857,7 @@ int SaraNcpFwUpdate::process() {
                 // We appear to be responsive again, if we missed the firmware UUFWINSTALL: 128 URC
                 // See if we can break out of here with verifying an updated or same as before FW revision
                 firmwareVersion_ = getNcpFirmwareVersion();
-                NCPFW_LOG(INFO, "App fV: %" FMT_LU ", sfV: %" FMT_LU ", uV: %" FMT_LU, firmwareVersion_, startingFirmwareVersion_, updateVersion_);
+                NCPFW_LOG_DEBUG(INFO, "App fV: %" FMT_LU ", sfV: %" FMT_LU ", uV: %" FMT_LU, firmwareVersion_, startingFirmwareVersion_, updateVersion_);
                 if (firmwareVersion_ == updateVersion_) {
                     saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_SUCCESS; // force a FW update success status
                     break;
@@ -845,7 +869,7 @@ int SaraNcpFwUpdate::process() {
                 delay(20000); // slow down the log output
             }
             if (millis() - startTimer_ >= NCP_FW_MODEM_INSTALL_FINISH_TIMEOUT) {
-                NCPFW_LOG(ERROR, "Install process timed out!");
+                NCPFW_LOG_DEBUG(ERROR, "Install process timed out!");
                 saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
                 saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_INSTALL_TIMEOUT;
                 break;
@@ -853,9 +877,9 @@ int SaraNcpFwUpdate::process() {
         }
 
         if (saraNcpFwUpdateStatus_ == FW_UPDATE_STATUS_SUCCESS) {
-            NCPFW_LOG(INFO, "Firware update success.");
+            NCPFW_LOG_DEBUG(INFO, "Firware update success.");
         } else {
-            NCPFW_LOG(ERROR, "Firmware update failed!!");
+            NCPFW_LOG_DEBUG(ERROR, "Firmware update failed!!");
         }
         // Power cycle the modem... who know's what odd state we are in.
         saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_POWER_OFF;
@@ -864,7 +888,7 @@ int SaraNcpFwUpdate::process() {
 
     case FW_UPDATE_STATE_FINISHED_POWER_OFF:
     {
-        NCPFW_LOG(INFO, "Power cycling modem and reconnecting to Cloud...");
+        NCPFW_LOG_DEBUG(INFO, "Power cycling modem and reconnecting to Cloud...");
         saraNcpFwUpdateData_.state = FW_UPDATE_STATE_FINISHED_POWER_OFF;
         saraNcpFwUpdateData_.status = saraNcpFwUpdateStatus_;
         saraNcpFwUpdateData_.error = saraNcpFwUpdateError_;
@@ -879,13 +903,13 @@ int SaraNcpFwUpdate::process() {
     case FW_UPDATE_STATE_FINISHED_POWERING_OFF:
     {
         if (millis() - startTimer_ >= NCP_FW_MODEM_POWER_OFF_TIMEOUT) {
-            NCPFW_LOG(ERROR, "Powering modem off timed out!");
+            NCPFW_LOG_DEBUG(ERROR, "Powering modem off timed out!");
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_IDLE;
             saraNcpFwUpdateStatus_ = FW_UPDATE_STATUS_FAILED;
             saraNcpFwUpdateError_ = SYSTEM_ERROR_SARA_NCP_FW_UPDATE_POWER_OFF_TIMEOUT;
         }
         if (network_is_off(NETWORK_INTERFACE_CELLULAR, nullptr)) {
-            NCPFW_LOG(INFO, "Powering modem off success");
+            NCPFW_LOG_DEBUG(INFO, "Powering modem off success");
             startTimer_ = millis();
             saraNcpFwUpdateState_ = FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTING;
             saraNcpFwUpdateData_.state = saraNcpFwUpdateState_;
@@ -949,7 +973,7 @@ int SaraNcpFwUpdate::process() {
     {
         saraNcpFwUpdateState_ = FW_UPDATE_STATE_IDLE;
         if (saraNcpFwUpdateStatus_ != FW_UPDATE_STATUS_IDLE && inSafeMode()) {
-            NCPFW_LOG(INFO, "Resetting out of Safe Mode!");
+            NCPFW_LOG_DEBUG(INFO, "Resetting out of Safe Mode!");
             delay(200);
             // Reset with graceful disconnect from Cloud
             system_reset(SYSTEM_RESET_MODE_NORMAL, 0, 0, 0, nullptr);
@@ -1029,3 +1053,5 @@ int sara_ncp_fw_update_config(const SaraNcpFwUpdateConfig* userConfigData, void*
 }
 
 #endif // #if HAL_PLATFORM_NCP_FW_UPDATE
+
+#endif // #if MODULE_FUNCTION != 2

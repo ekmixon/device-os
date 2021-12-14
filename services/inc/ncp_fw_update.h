@@ -17,22 +17,37 @@
 
 #pragma once
 
+#if MODULE_FUNCTION != 2 // BOOTLOADER
+
 #include "hal_platform.h"
+
+#if HAL_PLATFORM_NCP_FW_UPDATE
+// STATIC_ASSERT already defined from static_assert.h as PARTICLE_STATIC_ASSERT
+#ifdef STATIC_ASSERT
+#undef STATIC_ASSERT
+#endif
+// app_util.h unconditionally defines STATIC_ASSERT
+#include "static_recursive_mutex.h"
+// Allow STATIC_ASSERT to be defined as PARTICLE_STATIC_ASSERT in cellular_hal.h below
+#ifdef STATIC_ASSERT
+#undef STATIC_ASSERT
+#endif
+#endif // HAL_PLATFORM_NCP_FW_UPDATE
+
 #include "system_tick_hal.h"
 #include "system_defs.h"
 #include "system_mode.h"
-// #include "system_network.h"
 #include "cellular_hal.h"
 #include "platform_ncp.h"
 #include "diagnostics.h"
 #include "spark_wiring_diagnostics.h"
 #include "ncp_fw_update_dynalib.h"
-#include "static_assert.h"
 
 #if HAL_PLATFORM_NCP
 #include "at_parser.h"
 #include "at_response.h"
 #endif // HAL_PLATFORM_NCP
+
 
 #if HAL_PLATFORM_NCP_FW_UPDATE
 
@@ -89,7 +104,7 @@ enum SaraNcpFwUpdateState {
     FW_UPDATE_STATE_FINISHED_CLOUD_CONNECTED    = 16,
     FW_UPDATE_STATE_FINISHED_IDLE               = 17,
 };
-static_assert(FW_UPDATE_STATE_IDLE == 0 && FW_UPDATE_STATE_FINISHED_IDLE == 17, "SaraNcpFwUpdateState size changed!");
+PARTICLE_STATIC_ASSERT(SaraNcpFwUpdateState_size, FW_UPDATE_STATE_IDLE == 0 && FW_UPDATE_STATE_FINISHED_IDLE == 17);
 
 enum SaraNcpFwUpdateStatus {
     FW_UPDATE_STATUS_IDLE                       = 0,
@@ -99,7 +114,7 @@ enum SaraNcpFwUpdateStatus {
     FW_UPDATE_STATUS_FAILED                     = 4,
     FW_UPDATE_STATUS_NONE                       = 5, // for diagnostics
 };
-static_assert(FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_NONE == 5, "SaraNcpFwUpdateStatus size changed!");
+PARTICLE_STATIC_ASSERT(SaraNcpFwUpdateStatus_size, FW_UPDATE_STATUS_IDLE == 0 && FW_UPDATE_STATUS_NONE == 5);
 
 const system_tick_t NCP_FW_MODEM_INSTALL_ATOK_INTERVAL = 10000;
 const system_tick_t NCP_FW_MODEM_INSTALL_START_TIMEOUT = 5 * 60000;
@@ -170,6 +185,8 @@ public:
     int checkUpdate(uint32_t version = 0);
     int enableUpdates();
     int updateStatus();
+    int lock();
+    int unlock();
 
 protected:
     SaraNcpFwUpdate();
@@ -201,6 +218,8 @@ protected:
     SaraNcpFwUpdateCallbacks saraNcpFwUpdateCallbacks_ = {};
     HTTPSresponse httpsResp_ = {};
 
+    StaticRecursiveMutex mutex_;
+
     static int cbUHTTPER(int type, const char* buf, int len, HTTPSerror* data);
     static int cbULSTFILE(int type, const char* buf, int len, int* data);
     static int httpRespCallback(AtResponseReader* reader, const char* prefix, void* data);
@@ -217,6 +236,36 @@ protected:
     int recallSaraNcpFwUpdateData();
     int deleteSaraNcpFwUpdateData();
     void logSaraNcpFwUpdateData(SaraNcpFwUpdateData& data);
+};
+
+class SaraNcpFwUpdateLock {
+public:
+    SaraNcpFwUpdateLock()
+            : locked_(false) {
+        lock();
+    }
+    ~SaraNcpFwUpdateLock() {
+        if (locked_) {
+            unlock();
+        }
+    }
+    SaraNcpFwUpdateLock(SaraNcpFwUpdateLock&& lock)
+            : locked_(lock.locked_) {
+        lock.locked_ = false;
+    }
+    void lock() {
+        SaraNcpFwUpdate::instance()->lock();
+        locked_ = true;
+    }
+    void unlock() {
+        SaraNcpFwUpdate::instance()->unlock();
+        locked_ = false;
+    }
+    SaraNcpFwUpdateLock(const SaraNcpFwUpdateLock&) = delete;
+    SaraNcpFwUpdateLock& operator=(const SaraNcpFwUpdateLock&) = delete;
+
+private:
+    bool locked_;
 };
 
 #ifndef UNIT_TEST
@@ -249,3 +298,6 @@ public:
 } // namespace particle
 
 #endif // #if HAL_PLATFORM_NCP_FW_UPDATE
+
+#endif // #if MODULE_FUNCTION != 2 // BOOTLOADER
+

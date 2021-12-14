@@ -110,12 +110,17 @@ hal_net_access_tech_t fromCellularAccessTechnology(CellularAccessTechnology rat)
 }
 
 struct CellularHalUrcHandler {
+    CellularHalUrcHandler(const char* prefix, hal_cellular_urc_callback_t callback, void* context) :
+            prefix(prefix),
+            callback(callback),
+            context(context) {
+    }
     const char* prefix;
     hal_cellular_urc_callback_t callback;
     void* context;
 };
 
-Vector<CellularHalUrcHandler> sUrcHandlers;
+Vector<std::unique_ptr<CellularHalUrcHandler>> sUrcHandlers;
 
 static int commonUrcHandler(AtResponseReader* reader, const char* prefix, void* data) {
     auto handler = static_cast<CellularHalUrcHandler*>(data);
@@ -544,14 +549,12 @@ int cellular_add_urc_handler(const char* prefix, hal_cellular_urc_callback_t cb,
 
     const NcpClientLock lock(client);
 
-    sUrcHandlers.append({
-        .prefix = prefix,
-        .callback = cb,
-        .context = context
-    });
-    auto& handler = sUrcHandlers.last();
+    auto entry = std::make_unique<CellularHalUrcHandler>(prefix, cb, context);
+    CHECK_TRUE(entry, SYSTEM_ERROR_NO_MEMORY);
+    sUrcHandlers.append(std::move(entry));
+    auto handler = sUrcHandlers.last().get();
 
-    return parser->addUrcHandler(prefix, commonUrcHandler, &handler);
+    return parser->addUrcHandler(prefix, commonUrcHandler, handler);
 }
 
 int cellular_remove_urc_handler(const char* prefix) {
@@ -565,7 +568,7 @@ int cellular_remove_urc_handler(const char* prefix) {
 
     parser->removeUrcHandler(prefix);
     for (int i = 0; i < sUrcHandlers.size(); ++i) {
-        if (strcmp(sUrcHandlers.at(i).prefix, prefix) == 0) {
+        if (strcmp(sUrcHandlers.at(i).get()->prefix, prefix) == 0) {
             sUrcHandlers.removeAt(i);
             break;
         }

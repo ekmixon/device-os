@@ -16,3 +16,23 @@
  */
 
 #pragma once
+
+class StaticRecursiveMutex {
+public:
+    StaticRecursiveMutex() {
+    }
+
+    ~StaticRecursiveMutex() {
+    }
+
+    bool lock(unsigned timeout = 0) {
+        (void) timeout;
+        return true;
+    }
+
+    bool unlock() {
+        return true;
+    }
+
+private:
+};

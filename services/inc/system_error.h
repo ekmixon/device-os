@@ -53,9 +53,8 @@
         (SARA_NCP_FW_UPDATE_QUALIFY_FLAGS,                      "Qualify flags",                -400), /* -499 ... -400: SaraNcpFwUpdate errors */ \
         (SARA_NCP_FW_UPDATE_CLOUD_CONNECT_ON_ENTRY_TIMEOUT,     "Cloud conn. on entry timeout", -405), \
         (SARA_NCP_FW_UPDATE_PUBLISH_START,                      "Publish start err",            -410), \
-        (SARA_NCP_FW_UPDATE_SETUP_CELLULAR_DISCONNECT_TIMEOUT,  "Setup cell disconn. timeout",  -415), \
-        (SARA_NCP_FW_UPDATE_SETUP_CELLULAR_STILL_CONNECTED,     "Setup cell still conn.",       -420), \
-        (SARA_NCP_FW_UPDATE_SETUP_CELLULAR_CONNECT_TIMEOUT,     "Setup cell conn. timeout",     -425), \
+        (SARA_NCP_FW_UPDATE_SETUP_CELLULAR_STILL_CONNECTED,     "Setup cell still conn.",       -415), \
+        (SARA_NCP_FW_UPDATE_SETUP_CELLULAR_CONNECT_TIMEOUT,     "Setup cell conn. timeout",     -420), \
         (SARA_NCP_FW_UPDATE_HTTPS_SETUP_1,                      "HTTPS err 1",                  -430), \
         (SARA_NCP_FW_UPDATE_HTTPS_SETUP_2,                      "HTTPS err 2",                  -431), \
         (SARA_NCP_FW_UPDATE_HTTPS_SETUP_3,                      "HTTPS err 3",                  -432), \
@@ -66,14 +65,13 @@
         (SARA_NCP_FW_UPDATE_HTTPS_SETUP_8,                      "HTTPS err 8",                  -437), \
         (SARA_NCP_FW_UPDATE_HTTPS_SETUP_9,                      "HTTPS err 9",                  -438), \
         (SARA_NCP_FW_UPDATE_DOWNLOAD_RETRY_MAX,                 "DL retry max err",             -440), \
-        (SARA_NCP_FW_UPDATE_INSTALL_CELLULAR_DISCONNECT_TIMEOUT,"Install cell disconn. timeout",-445), \
-        (SARA_NCP_FW_UPDATE_START_INSTALL_TIMEOUT,              "Install start timeout",        -450), \
-        (SARA_NCP_FW_UPDATE_INSTALL_AT_ERROR,                   "Install AT err",               -455), \
-        (SARA_NCP_FW_UPDATE_SAME_VERSION,                       "Same version err",             -460), \
-        (SARA_NCP_FW_UPDATE_INSTALL_TIMEOUT,                    "Install timeout",              -465), \
-        (SARA_NCP_FW_UPDATE_POWER_OFF_TIMEOUT,                  "Power off timeout",            -470), \
-        (SARA_NCP_FW_UPDATE_CLOUD_CONNECT_ON_EXIT_TIMEOUT,      "Cloud conn. on exit timeout",  -475), \
-        (SARA_NCP_FW_UPDATE_PUBLISH_RESULT,                     "Publish result err",           -480), \
+        (SARA_NCP_FW_UPDATE_START_INSTALL_TIMEOUT,              "Install start timeout",        -445), \
+        (SARA_NCP_FW_UPDATE_INSTALL_AT_ERROR,                   "Install AT err",               -450), \
+        (SARA_NCP_FW_UPDATE_SAME_VERSION,                       "Same version err",             -455), \
+        (SARA_NCP_FW_UPDATE_INSTALL_TIMEOUT,                    "Install timeout",              -460), \
+        (SARA_NCP_FW_UPDATE_POWER_OFF_TIMEOUT,                  "Power off timeout",            -465), \
+        (SARA_NCP_FW_UPDATE_CLOUD_CONNECT_ON_EXIT_TIMEOUT,      "Cloud conn. on exit timeout",  -470), \
+        (SARA_NCP_FW_UPDATE_PUBLISH_RESULT,                     "Publish result err",           -475), \
         (COAP, "CoAP error", -1000), /* -1199 ... -1000: CoAP errors */ \
         (COAP_4XX, "CoAP: 4xx", -1100), \
         (COAP_5XX, "CoAP: 5xx", -1132), \
