@@ -727,7 +727,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             //============================================
 
             // Failed to publish case
-            mocks.ExpectCallFunc(publishEvent).With("spark/device/ncp/update", "started", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1).Return(false);
+            mocks.ExpectCallFunc(publishEvent).Return(false);
             REQUIRE(ncpTest.process() == SYSTEM_ERROR_NONE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_FAILED);
@@ -748,7 +748,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             ncpTest.setSaraNcpFwUpdateState(FW_UPDATE_STATE_SETUP_CLOUD_CONNECTED); // back to set startTimer again
             ncpTest.setSaraNcpFwUpdateStatus(FW_UPDATE_STATUS_DOWNLOADING);
             // Publish successful case
-            mocks.ExpectCallFunc(publishEvent).With("spark/device/ncp/update", "started", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1).Return(true);
+            mocks.ExpectCallFunc(publishEvent).Return(true);
             REQUIRE(ncpTest.process() == SYSTEM_ERROR_NONE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_DOWNLOAD_CLOUD_DISCONNECT);
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_DOWNLOADING);
@@ -1320,7 +1320,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             ncpTest.setSaraNcpFwUpdateError(SYSTEM_ERROR_NONE);
             ncpMocks.setSparkCloudFlagConnected(true);
             // Failed to publish case
-            mocks.ExpectCallFunc(publishEvent).With("spark/device/ncp/update", "success", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1).Return(false);
+            mocks.ExpectCallFunc(publishEvent).Return(false);
             REQUIRE(ncpTest.process() == SYSTEM_ERROR_NONE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_FAILED);
@@ -1331,7 +1331,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             ncpTest.setSaraNcpFwUpdateStatus(FW_UPDATE_STATUS_FAILED); // simulated failure
             ncpTest.setSaraNcpFwUpdateError(SYSTEM_ERROR_SARA_NCP_FW_UPDATE_POWER_OFF_TIMEOUT); // simulated error
             // Publish a failed status case
-            mocks.ExpectCallFunc(publishEvent).With("spark/device/ncp/update", "failed", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1).Return(true);
+            mocks.ExpectCallFunc(publishEvent).Return(true);
             REQUIRE(ncpTest.process() == SYSTEM_ERROR_NONE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_FAILED);
@@ -1342,7 +1342,7 @@ TEST_CASE("SaraNcpFwUpdate") {
             ncpTest.setSaraNcpFwUpdateStatus(FW_UPDATE_STATUS_SUCCESS);
             ncpTest.setSaraNcpFwUpdateError(SYSTEM_ERROR_NONE);
             // Publish a failed status case
-            mocks.ExpectCallFunc(publishEvent).With("spark/device/ncp/update", "success", /*flags PUBLISH_EVENT_FLAG_PRIVATE*/1).Return(true);
+            mocks.ExpectCallFunc(publishEvent).Return(true);
             REQUIRE(ncpTest.process() == SYSTEM_ERROR_NONE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateState() == FW_UPDATE_STATE_FINISHED_IDLE);
             REQUIRE(ncpTest.getSaraNcpFwUpdateStatus() == FW_UPDATE_STATUS_SUCCESS);
