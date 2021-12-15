@@ -40,7 +40,7 @@ rm -rf .build/*
 mkdir -p .build/
 cd .build/
 cmake $cmake_args ..
-make all test coveralls
+make all test coveralls CTEST_OUTPUT_ON_FAILURE=TRUE
 
 cmake_unit_tests=$?
 

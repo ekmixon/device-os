@@ -16,17 +16,36 @@ Generate build files:
 cmake ..
 ```
 
+Build and run the tests:
+
+```bash
+device-os/test/unit_tests/build $ make all test
+```
+
+Build and run just one set of tests (ncp_fw_update):
+
+```bash
+device-os/test/unit_tests/build/ $ cd ncp_fw_update
+device-os/test/unit_tests/build/ncp_fw_update $ make all test
+```
+
 Build and run the tests and coverage:
 
 ```bash
-make all test coverage
+device-os/test/unit_tests/build $ make all test coverage
+```
+
+Build and run the tests and coverage, and output verbose errors on failure:
+
+```bash
+device-os/test/unit_tests/build $ make all test coverage CTEST_OUTPUT_ON_FAILURE=TRUE
 ```
 
 Enable verbose output for monitoring all of those printf() statements while debugging tests
 (note: please don't forget to disable these printf's when finished debugging)
 
-```
-make all test coverage ARGS=--verbose
+```bash
+device-os/test/unit_tests/build $ make all test coverage ARGS=--verbose
 ```
 
 
