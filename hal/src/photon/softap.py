@@ -35,8 +35,7 @@ import binascii
 from hamcrest import assert_that, empty, is_, is_not
 
 def hex2bin(hex):
-    binary_string = binascii.unhexlify(hex)
-    return binary_string
+    return binascii.unhexlify(hex)
 
 
 def encrypt_pwd(pwd, key_hex):
@@ -48,13 +47,7 @@ def encrypt_pwd(pwd, key_hex):
     key_bin = hex2bin(key_hex[44:])
 
     pk = rsa.PublicKey.load_pkcs1(key_bin, 'DER')
-    # http://stuvel.eu/files/python-rsa-doc/reference.html#rsa.PublicKey
-    #
-    # save cert as memory file w StringIO - https://docs.python.org/2/library/stringio.html
-    # load_pkcs1()
-    #
-    result = rsa.encrypt(pwd, pk)
-    return result
+    return rsa.encrypt(pwd, pk)
 
 
 def scan():
@@ -71,21 +64,20 @@ def scan():
     for l in lines:
         #line = l.decode('utf-8').strip()
         line = l.strip()
-        m = ssid_re.match(line)
-        if m:
-            current = {'ssid':m.group(1), 'type':None, 'encryption':None}
+        if m := ssid_re.match(line):
+            current = {'ssid': m[1], 'type': None, 'encryption': None}
             result.append(current)
         elif type_re.match(line):
             m = type_re.match(line)
-            current['type'] = m.group(1)
+            current['type'] = m[1]
         elif crypt_re.match(line):
             m = crypt_re.match(line)
-            current['encryption'] = m.group(1)
+            current['encryption'] = m[1]
 
     return result
 
 def connect(ssid):
-    subprocess.call("netsh wlan connect name=%s" % ssid)
+    subprocess.call(f"netsh wlan connect name={ssid}")
     time.sleep(3)
 
 def refresh():
@@ -140,7 +132,7 @@ class BaseClient:
 class HTTPSoftAPClient(BaseClient):
     def send_request(self, name, request_obj=None, response_obj=None):
         client = httplib.HTTPConnection('192.168.0.1', timeout=10)
-        body = None if not request_obj else json.dumps(request_obj)
+        body = json.dumps(request_obj) if request_obj else None
         if body is None:
             client.request("GET", name)
         else:
@@ -154,11 +146,10 @@ class HTTPSoftAPClient(BaseClient):
         return response_obj
 
     def _fetch(self, name, req, resp):
-        return self.send_request("/"+name, req, resp)
+        return self.send_request(f"/{name}", req, resp)
 
     def _parseResponse(self, msg):
-        obj = json.loads(msg) if msg else Object()
-        return obj
+        return json.loads(msg) if msg else Object()
 
 
 class TCPSoftAPClient(BaseClient):
@@ -183,11 +174,8 @@ class TCPSoftAPClient(BaseClient):
 
     def recv(self, obj):
         msg = ""
-        data = self.s.recv(4096)
-        while data:
+        while data := self.s.recv(4096):
             msg += data
-            data = self.s.recv(4096)
-
         return self._parseResponse(msg)
 
     def close(self):
@@ -210,9 +198,8 @@ class TCPSoftAPClient(BaseClient):
             if len(x)==0:
                 break
 
-        msg = "\n".join(lines[0:])
-        obj = json.loads(msg) if i else Object()
-        return obj
+        msg = "\n".join(lines[:])
+        return json.loads(msg) if i else Object()
 
 
 #client = TCPSoftAPClient()
@@ -227,15 +214,9 @@ client = HTTPSoftAPClient()
 
 class SoftAPTestCase(unittest.TestCase):
     def test_soft_ap(self):
-        if False and os.name=='nt':
-            ssid = self.find_photon_ap()
-            print("Connecting to network ssid=%s " % ssid)
-            connect(ssid)
-
-        if True:
-            version = client.version()
-            assert_that(version, is_(expected_version))
-            print("Protocol Version is %d" % version)
+        version = client.version()
+        assert_that(version, is_(expected_version))
+        print("Protocol Version is %d" % version)
 
         device_id = client.fetch_device_id()
         print("Device id is '%s'" % device_id)
@@ -267,14 +248,10 @@ class SoftAPTestCase(unittest.TestCase):
         photon_re = re.compile("photon-\d+")
         while (not photons and (time.time()-start)<30):
             networks = scan()
-            for ap in networks:
-                if photon_re.match(ap['ssid']):
-                    photons.append(ap)
-
+            photons.extend(ap for ap in networks if photon_re.match(ap['ssid']))
         assert_that(photons, is_not(empty()), "expected at least one photon soft AP network")
 
-        ssid = photons[0]['ssid']
-        return ssid
+        return photons[0]['ssid']
 
 
 if __name__ == '__main__':

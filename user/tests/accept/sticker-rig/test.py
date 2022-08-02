@@ -10,14 +10,8 @@ import sys
 import time
 import array
 
-port = None
-if len(sys.argv) > 1:
-    port = sys.argv[1]
-
-listen = None
-if len(sys.argv) > 2:
-    listen = sys.argv[2]
-
+port = sys.argv[1] if len(sys.argv) > 1 else None
+listen = sys.argv[2] if len(sys.argv) > 2 else None
 if listen:
     l = serial.Serial(listen, 28800)
     l.close()

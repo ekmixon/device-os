@@ -59,10 +59,7 @@ class StructSerializable(struct.Struct):
 
     def __getitem__(self, key):
         if not key.startswith('_'):
-            if key in self._store:
-                return self._store[key]
-            else:
-                return self.__dict__[key]
+            return self._store[key] if key in self._store else self.__dict__[key]
         else:
             return self.__dict__[key]
 
@@ -79,10 +76,7 @@ class StructSerializable(struct.Struct):
         self.__setitem__(key, value)
 
     def __contains__(self, key):
-        if not key.startswith('_'):
-            return key in self._store
-        else:
-            return key in self.__dict__
+        return key in self.__dict__ if key.startswith('_') else key in self._store
 
     def items(self):
         return self._store
@@ -149,12 +143,11 @@ class ModuleHeader(StructSerializable):
                 for d in dependencies:
                     if not isinstance(d, ModuleDependency):
                         raise ValueError('Invalid dependency')
-        if flags is not None:
-            if not isinstance(flags, ModuleFlags) and not isinstance(flags, int):
-                raise ValueError('Invalid module flags')
-        else:
+        if flags is None:
             flags = ModuleFlags.NONE
 
+        elif not isinstance(flags, ModuleFlags) and not isinstance(flags, int):
+            raise ValueError('Invalid module flags')
         self.module_start_address = start
         self.module_end_address = start + length + self.size + ModuleFooter().size + ModuleDependency().size * 2
         self.mcu_target = 0
@@ -206,32 +199,31 @@ class Module(object):
 
     def __str__(self):
         _, header, footer, crc = self._generate()
-        s = '%s\n%s\n%s' % (header, footer, hex(crc))
-        return s
+        return '%s\n%s\n%s' % (header, footer, hex(crc))
 
     def __repr__(self):
         return str(self)
 
 def parse_dependency(dep):
-    if dep:
-        (func, version, index) = dep
-        try:
-            func = ModuleFunction[func.upper()]
-        except:
-            raise ValueError('Invalid module function: %s' % (func)) from None
+    if not dep:
+        return ModuleDependency()
+    (func, version, index) = dep
+    try:
+        func = ModuleFunction[func.upper()]
+    except:
+        raise ValueError(f'Invalid module function: {func}') from None
 
-        try:
-            version = int(version)
-        except:
-            raise ValueError('Invalid version: %s' % (version)) from None
+    try:
+        version = int(version)
+    except:
+        raise ValueError(f'Invalid version: {version}') from None
 
-        try:
-            index = int(index)
-        except:
-            raise ValueError('Invalid index: %s' % (index)) from None
+    try:
+        index = int(index)
+    except:
+        raise ValueError(f'Invalid index: {index}') from None
 
-        return ModuleDependency(func, version, index)
-    return ModuleDependency()
+    return ModuleDependency(func, version, index)
 
 GEN3_PLATFORMS = [Platform.ARGON, Platform.BORON, Platform.ASOM, Platform.BSOM, Platform.B5SOM, Platform.TRACKER]
 GEN3_RADIO_STACK_VERSION_OFFSET = 0x300c
@@ -286,7 +278,7 @@ def main():
     # Special handling for Gen 3 SoftDevice
     if platform in GEN3_PLATFORMS and function == ModuleFunction.RADIO_STACK and args.version == 0:
         (version,) = struct.unpack_from('<H', bin, GEN3_RADIO_STACK_VERSION_OFFSET)
-        if len(dependencies) == 0:
+        if not dependencies:
             dependencies = [GEN3_RADIO_STACK_DEPENDENCY, GEN3_RADIO_STACK_DEPENDENCY2]
         if args.address == 0:
             # Skip MBR

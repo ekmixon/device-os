@@ -22,13 +22,12 @@ import serial
 import re
 import json
 
-if platform.system() == 'Darwin' or platform.system() == 'Windows':
+if platform.system() in ['Darwin', 'Windows']:
     import pygame
+elif sys.version_info[0] == 2:
+    from Tkinter import *
 else:
-    if sys.version_info[0] == 2:
-        from Tkinter import *
-    else:
-        from tkinter import *
+    from tkinter import *
 
 usb_keymap = {
     # taken from https://chromium.googlesource.com/chromium/chromium/+/master/ui/base/keycodes/usb_keycode_map.h
@@ -343,17 +342,12 @@ class SerialConnection:
         self.report_event(ev)
 
     def report_key(self, code, mod, char):
-        if char == '':
-            char = 256
-        else:
-            char = ord(char)
+        char = 256 if char == '' else ord(char)
         ev = ('k', 0, 0, code, mod, char)
         self.report_event(ev)
 
     def handle(self):
-        l = b''
-        if self.s is not None:
-            l = self.s.readline()
+        l = self.s.readline() if self.s is not None else b''
         if l == b'':
             return None
         l = l.strip()
@@ -365,11 +359,8 @@ class SerialConnection:
             self.state = False
             status = True
             text = l
-            if (int(p) + int(s)) == int(t):
-                status = True
-            else:
-                status = False
-            return (status, l)
+            status = int(p) + int(s) == int(t)
+            return status, text
 
 class MainWindowBase:
     def __init__(self, ser):
@@ -649,7 +640,7 @@ else:
     MainWindow = MainWindowTkinter
 
 def usage():
-    print('Usage: {} <tty>'.format(sys.argv[0]))
+    print(f'Usage: {sys.argv[0]} <tty>')
     sys.exit(0)
 
 if __name__ == '__main__':

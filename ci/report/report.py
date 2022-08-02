@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Module to upload Python JSON structure to Coveralls.io"""
+
 # -*- coding:utf-8 -*-
 
 from __future__ import absolute_import
@@ -21,7 +22,7 @@ __classifiers__ = [
     'Topic :: Utilities',
 ]
 
-__copyright__ = '2019, %s ' % __author__
+__copyright__ = f'2019, {__author__} '
 __license__ = """
     Copyright %s.
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,13 +67,11 @@ def post_report(coverage, args):
                       'status': response.status_code,
                       'text': response.text}}
     print(result)
-    if 'error' in result:
-        return result['error']
-    return 0
+    return result.get('error', 0)
 
 def main():
     if (len(sys.argv) < 2):
-        print("USAGE: python %s <coverage.json>" % sys.argv[0])
+        print(f"USAGE: python {sys.argv[0]} <coverage.json>")
     else:
         args = Args()
         with open(sys.argv[1], 'r') as json_coverage_file:
@@ -82,9 +81,9 @@ def main():
             # Pull environment variables
             if (json_coverage_details['repo_token'] is None):
                 json_coverage_details['repo_token'] = os.environ.get('COVERALLS_REPO_TOKEN')
-                if (json_coverage_details['repo_token'] is None):
-                    print("Environment variable COVERALLS_REPO_TOKEN is required to upload coverage information")
-                    exit(-1)
+            if (json_coverage_details['repo_token'] is None):
+                print("Environment variable COVERALLS_REPO_TOKEN is required to upload coverage information")
+                exit(-1)
 
             # Consume Codefresh CI specific environment variables _(if available)_
             json_coverage_details['service_job_id'] = os.environ.get('CF_BUILD_ID')
